@@ -1,5 +1,5 @@
 -- =========================================================================
--- AXAC HUB — V16.3 (Final: Font Fix, Delta Native)
+-- AXAC HUB — V18.0 (Anti-Slop Editorial + Splash + Smooth Tween)
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -28,7 +28,7 @@ local Theme = {
     AccentDim = Color3.fromRGB(107, 12, 18), Gold = Color3.fromRGB(201, 162, 39),
 }
 
--- 2. DELTA SAFE GUI INJECTION
+-- 2. SAFE GUI INJECTION
 local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("AxacHub")
 if oldGui then oldGui:Destroy() end
 
@@ -46,51 +46,70 @@ local function Make(class, props, parent)
     return obj
 end
 
--- 3. STATE & TRACKERS
+-- 3. STATE
 local Store = {
-    Flags = {},
-    Settings = { CustomSpeed = 32, FlySpeed = 50, FarmRange = 150, FarmRate = 0.2 },
-    Toggles = {},
-    Sliders = {},
-    Connections = {},
-    Threads = {},
-    NoclipParts = setmetatable({}, {__mode = "k"}),
-    Blacklist = setmetatable({}, {__mode = "k"}),
-    NotifGen = 0,
-    LastFarmWarn = 0,
-    LastTargetFound = false,
+    Flags = {}, Settings = { CustomSpeed = 32, FlySpeed = 50, FarmRange = 150, FarmRate = 0.2 },
+    Toggles = {}, Sliders = {}, Connections = {}, Threads = {},
+    NoclipParts = setmetatable({}, {__mode = "k"}), Blacklist = setmetatable({}, {__mode = "k"}),
+    NotifGen = 0, LastFarmWarn = 0, LastTargetFound = false, IsMenuOpen = false,
 }
 
 local function KillThreads()
-    for _, data in pairs(Store.Threads) do
-        if data.thread then pcall(function() task.cancel(data.thread) end) end
-    end
+    for _, data in pairs(Store.Threads) do if data.thread then pcall(function() task.cancel(data.thread) end) end end
     Store.Threads = {}
 end
-
 local function DisconnectAll()
     for _, conn in pairs(Store.Connections) do pcall(function() conn:Disconnect() end) end
-    Store.Connections = {}
-    KillThreads()
+    Store.Connections = {}; KillThreads()
     for _, slider in pairs(Store.Sliders) do pcall(function() slider:Destroy() end) end
     Store.Sliders = {}
 end
-
 local function RegisterThread(thread, flagName)
     for i = #Store.Threads, 1, -1 do
         local t = Store.Threads[i].thread
-        if not t or (coroutine.status(t) ~= "running" and coroutine.status(t) ~= "suspended" and coroutine.status(t) ~= "normal") then
-            table.remove(Store.Threads, i)
-        end
+        if not t or (coroutine.status(t) ~= "running" and coroutine.status(t) ~= "suspended" and coroutine.status(t) ~= "normal") then table.remove(Store.Threads, i) end
     end
     table.insert(Store.Threads, { thread = thread, flag = flagName })
 end
 
--- 4. UI BUILDER
-local MainFrame = Make("Frame", { Size = UDim2.fromOffset(604, 412), Position = UDim2.new(0.5, -302, 0.5, -206), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ClipsDescendants = false, BackgroundTransparency = 1, ZIndex = 5 }, ScreenGui)
+-- =========================================================================
+-- 4. SPLASH SCREEN (KEYFRAME SMOOTH)
+-- =========================================================================
+local Splash = Make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ZIndex = 200 }, ScreenGui)
+
+local SplashText = Make("TextLabel", {
+    Size = UDim2.fromOffset(200, 50), Position = UDim2.new(0.5, -100, 0.5, -25),
+    BackgroundTransparency = 1, Text = "AXAC", Font = Enum.Font.Garamond, TextSize = 48,
+    TextColor3 = Theme.Text, TextTransparency = 1, ZIndex = 201,
+}, Splash)
+
+local SplashLine = Make("Frame", {
+    Size = UDim2.fromOffset(0, 1), Position = UDim2.new(0.5, 0, 0.5, 30),
+    BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, ZIndex = 201,
+}, Splash)
+
+task.spawn(function()
+    -- Animasi 1: Fade in text & expand line
+    TweenService:Create(SplashText, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextTransparency = 0, Position = UDim2.new(0.5, -100, 0.5, -35) }):Play()
+    TweenService:Create(SplashLine, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(120, 1) }):Play()
+    task.wait(1.5)
+
+    -- Animasi 2: Fade out splash
+    TweenService:Create(SplashText, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { TextTransparency = 1 }):Play()
+    TweenService:Create(SplashLine, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = UDim2.fromOffset(0, 1) }):Play()
+    task.wait(0.4)
+    
+    Splash:Destroy()
+    Store.IsMenuOpen = true
+    if _G.AxacOpenMenu then _G.AxacOpenMenu() end
+end)
+
+-- =========================================================================
+-- 5. UI BUILDER (ANTI-SLOP)
+-- =========================================================================
+local MainFrame = Make("Frame", { Size = UDim2.fromOffset(604, 412), Position = UDim2.new(0.5, -302, 0.5, -206), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ClipsDescendants = false, BackgroundTransparency = 1, ZIndex = 5, Visible = false }, ScreenGui)
 Make("UICorner", { TopLeftRadius = UDim.new(0, 4), BottomRightRadius = UDim.new(0, 4), TopRightRadius = UDim.new(0, 0), BottomLeftRadius = UDim.new(0, 0) }, MainFrame)
-Make("UIStroke", { Color = Theme.Hairline, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, MainFrame)
-TweenService:Create(MainFrame, TweenInfo.new(0.09), { BackgroundTransparency = 0 }):Play()
+Make("UIStroke", { Color = Theme.Hairline, Thickness = 1 }, MainFrame)
 
 local dragging, dragStart, startPos
 MainFrame.InputBegan:Connect(function(input)
@@ -109,10 +128,10 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 local TitleBar = Make("Frame", { Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = Theme.Elevated, BorderSizePixel = 0 }, MainFrame)
--- FIX: CormorantGaramond diganti Garamond
 Make("TextLabel", { BackgroundTransparency = 1, Text = "AXAC HUB", Font = Enum.Font.Garamond, TextSize = 22, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0, 20, 0, 0), Size = UDim2.new(1, -100, 1, 0) }, TitleBar)
 Make("Frame", { BackgroundColor3 = Theme.Hairline, BorderSizePixel = 0, Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, -14, 0, 1) }, TitleBar)
 Make("TextLabel", { BackgroundTransparency = 1, Text = "v3.1.0 · build 4192", Font = Enum.Font.Code, TextSize = 11, TextColor3 = Theme.Gold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0, 150, 0, 21), Size = UDim2.new(0, 150, 0, 20) }, TitleBar)
+
 local CloseBtn = Make("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -34, 0, 31), BackgroundTransparency = 1, Text = "X", Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Theme.Subtext }, TitleBar)
 CloseBtn.MouseEnter:Connect(function() CloseBtn.TextColor3 = Theme.Accent end)
 CloseBtn.MouseLeave:Connect(function() CloseBtn.TextColor3 = Theme.Subtext end)
@@ -169,6 +188,46 @@ local function ShowNotif(text)
     end)
 end
 
+-- =========================================================================
+-- 6. FLOATING ORB SHORTCUT
+-- =========================================================================
+local Orb = Make("TextButton", {
+    Size = UDim2.fromOffset(46, 46), Position = UDim2.new(0, 20, 0.5, -23),
+    BackgroundColor3 = Theme.Canvas, Text = "A", Font = Enum.Font.Garamond, TextSize = 24,
+    TextColor3 = Theme.Accent, AutoButtonColor = false, ZIndex = 150, Visible = false 
+}, ScreenGui)
+Make("UICorner", { CornerRadius = UDim.new(1, 0) }, Orb)
+Make("UIStroke", { Color = Theme.Accent, Thickness = 1.5 }, Orb)
+
+Orb.MouseEnter:Connect(function() TweenService:Create(Orb, TweenInfo.new(0.14), { BackgroundColor3 = Theme.Accent, TextColor3 = Theme.Text }):Play() end)
+Orb.MouseLeave:Connect(function() TweenService:Create(Orb, TweenInfo.new(0.14), { BackgroundColor3 = Theme.Canvas, TextColor3 = Theme.Accent }):Play() end)
+
+local function ToggleGUI(show)
+    Store.IsMenuOpen = show
+    if show then
+        Orb.Visible = false
+        MainFrame.Visible = true
+        MainFrame.Position = UDim2.new(0.5, -302, 0.5, -190)
+        TweenService:Create(MainFrame, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0, Position = UDim2.new(0.5, -302, 0.5, -206) }):Play()
+    else
+        TweenService:Create(MainFrame, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
+        task.delay(0.16, function() if not Store.IsMenuOpen then MainFrame.Visible = false; Orb.Visible = true end end)
+    end
+end
+
+_G.AxacOpenMenu = function() ToggleGUI(true) end
+Orb.MouseButton1Click:Connect(function() ToggleGUI(true) end)
+CloseBtn.MouseButton1Click:Connect(function() ToggleGUI(false) end)
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
+        ToggleGUI(not Store.IsMenuOpen)
+    end
+end)
+
+-- =========================================================================
+-- 7. HELPER & UI COMPONENTS
+-- =========================================================================
 local function CreatePage(name)
     local Page = Make("ScrollingFrame", {
         Size = UDim2.new(1, -44, 1, -48), Position = UDim2.new(0, 24, 0, 20),
@@ -247,7 +306,9 @@ local function AddButton(parent, text, callback, isDestructive)
     Btn.MouseButton1Click:Connect(function() if callback then callback() end end)
 end
 
--- 5. HELPERS
+-- =========================================================================
+-- 8. FEATURE LOGIC & BACKGROUND LOOPS (Sama dengan V17)
+-- =========================================================================
 local KILLER_TOOLS = {["Knife"]=true, ["Axe"]=true, ["Bat"]=true, ["Cleaver"]=true, ["Scythe"]=true}
 local function checkIsKiller(p)
     if not p or not p.Character then return false end
@@ -269,7 +330,6 @@ local function isPlayerDowned(char)
     return (bleed and bleed.Enabled) or hum.PlatformStand or (hum.Health <= 0)
 end
 
--- 6. FEATURE PAGES
 local ESPFolder = Instance.new("Folder"); ESPFolder.Name = "AxacESPFolder"; ESPFolder.Parent = ScreenGui
 
 local MainPage = CreatePage("Main")
@@ -581,7 +641,9 @@ AddButton(ConfigPage, "Unload Hub", function()
     if ScreenGui then ScreenGui:Destroy() end
 end, true)
 
--- 7. BACKGROUND LOOPS
+-- =========================================================================
+-- 9. BACKGROUND LOOPS
+-- =========================================================================
 local logicThread = task.spawn(function()
     while task.wait(0.1) do
         if LocalPlayer.Character then
@@ -694,11 +756,5 @@ UserInputService.JumpRequest:Connect(function()
     if Store.Flags.InfJump and LocalPlayer.Character then
         local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-    end
-end)
-
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
-        MainFrame.Visible = not MainFrame.Visible
     end
 end)
