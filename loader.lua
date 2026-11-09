@@ -1,8 +1,7 @@
 --[[
-    AxacHub Loader
-    Fetches the hub from GitHub raw and injects it into the current executor.
-    Repo: masadepanindah327-cpu/Axac-Stk-V1-Hub
-    Target file: main.lua
+    AxacHub Loader — Delta Official Safe
+    Taruh di: loader.lua (GitHub)
+    Tugas: Nge-fetch main.lua dari raw GitHub, lalu eksekusi.
 --]]
 
 local CONFIG = {
@@ -12,9 +11,6 @@ local CONFIG = {
     LogPrefix   = "[AxacLoader]",
 }
 
---=====================================================================
--- ENVIRONMENT
---=====================================================================
 local StarterGui = game:GetService("StarterGui")
 
 local function log(msg)
@@ -23,119 +19,94 @@ end
 
 local function notify(title, text)
     pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title,
-            Text  = text,
-            Duration = 4,
-        })
+        StarterGui:SetCore("SendNotification", { Title = title, Text = text, Duration = 5 })
     end)
 end
 
---=====================================================================
--- FETCH
---=====================================================================
+-- 1. FETCH (Gunakan game:HttpGet standar yang paling stabil di Delta)
 local function fetch(url)
     local ok, result = pcall(function()
-        if syn and syn.request then
-            local res = syn.request({ Url = url, Method = "GET" })
-            if res.StatusCode ~= 200 then error("http " .. tostring(res.StatusCode)) end
-            return res.Body
-        elseif http and http.request then
-            local res = http.request({ Url = url, Method = "GET" })
-            if res.StatusCode ~= 200 then error("http " .. tostring(res.StatusCode)) end
-            return res.Body
-        elseif request then
-            local res = request({ Url = url, Method = "GET" })
-            if res.StatusCode ~= 200 then error("http " .. tostring(res.StatusCode)) end
-            return res.Body
-        elseif game.HttpGet then
-            return game:HttpGet(url, true)
+        -- Delta punya game:HttpGet, ini paling aman
+        if game.HttpGet then
+            return game:HttpGet(url)
         elseif game.HttpGetAsync then
             return game:HttpGetAsync(url)
+        elseif typeof(request) == "function" then
+            local res = request({ Url = url, Method = "GET" })
+            return res.Body
+        elseif typeof(http_request) == "function" then
+            local res = http_request({ Url = url, Method = "GET" })
+            return res.Body
         end
-        error("no HttpGet available in this executor")
+        error("Executor tidak mendukung HTTP request.")
     end)
-    if not ok then
-        return nil, tostring(result)
-    end
-    if type(result) ~= "string" or #result < 32 then
-        return nil, "empty or truncated response"
+    
+    if not ok then return nil, tostring(result) end
+    if type(result) ~= "string" or #result < 100 then
+        return nil, "Response kosong atau terlalu pendek."
     end
     return result
 end
 
---=====================================================================
--- VALIDATE
---=====================================================================
+-- 2. VALIDATE
 local function validate(source)
-    if not source or type(source) ~= "string" then
-        return false, "source is not a string"
-    end
-    if #source < 500 then
-        return false, "source too small (" .. #source .. " bytes)"
-    end
+    if type(source) ~= "string" then return false, "Source bukan string." end
     if source:find("<html", 1, true) or source:find("<!DOCTYPE", 1, true) then
-        return false, "received an HTML page, not raw Lua (URL likely wrong)"
+        return false, "URL mengembalikan halaman HTML (bukan raw Lua)."
     end
     if source:find("404: Not Found", 1, true) then
-        return false, "github returned 404 for the raw file"
+        return false, "File tidak ditemukan di GitHub (404)."
     end
     if not source:find("AXAC HUB", 1, true) and not source:find("AxacHub", 1, true) then
-        return false, "source does not contain the hub signature"
+        return false, "File tidak mengandung signature AxacHub."
     end
     return true
 end
 
---=====================================================================
--- EXECUTE
---=====================================================================
+-- 3. RUN
 local function run(source)
-    local fn, err = loadstring(source)
-    if not fn then
-        return false, "loadstring failed: " .. tostring(err)
-    end
-    local ok, runErr = pcall(fn)
-    if not ok then
-        return false, "runtime error: " .. tostring(runErr)
-    end
+    local ok, fn = pcall(loadstring, source)
+    if not ok then return false, "Loadstring error: " .. tostring(fn) end
+    if type(fn) ~= "function" then return false, "Syntax error di main.lua." end
+    
+    local rok, runErr = pcall(fn)
+    if not rok then return false, "Runtime error: " .. tostring(runErr) end
     return true
 end
 
---=====================================================================
--- MAIN
---=====================================================================
+-- 4. MAIN
 local function main()
-    log("fetching " .. CONFIG.RawURL)
-
-    local source, fetchErr = fetch(CONFIG.RawURL)
+    log("Fetching " .. CONFIG.RawURL)
+    local source, err = fetch(CONFIG.RawURL)
+    
     if not source then
-        log("primary fetch failed: " .. tostring(fetchErr))
-        log("trying fallback: " .. CONFIG.FallbackURL)
-        source, fetchErr = fetch(CONFIG.FallbackURL)
+        log("Primary failed: " .. tostring(err) .. ". Trying fallback...")
+        source, err = fetch(CONFIG.FallbackURL)
         if not source then
-            log("fallback failed: " .. tostring(fetchErr))
-            notify(CONFIG.Name, "Loader could not reach GitHub. Check URL or connection.")
+            log("Fallback failed: " .. tostring(err))
+            notify(CONFIG.Name, "Gagal fetch hub.")
             return
         end
     end
 
     local valid, validErr = validate(source)
     if not valid then
-        log("validation failed: " .. tostring(validErr))
-        notify(CONFIG.Name, "Hub source invalid: " .. tostring(validErr))
+        log("Validate failed: " .. tostring(validErr))
+        notify(CONFIG.Name, "Source invalid: " .. tostring(validErr))
         return
     end
 
-    log(string.format("fetched %d bytes, executing", #source))
-
+    log(string.format("Fetched %d bytes. Executing...", #source))
     local ok, runErr = run(source)
+    
     if not ok then
-        log("execute failed: " .. tostring(runErr))
-        notify(CONFIG.Name, "Hub crashed on execute. Check console for details.")
+        log("Execute failed: " .. tostring(runErr))
+        -- Tampilkan error di notif biar lo gak perlu buka console
+        notify(CONFIG.Name, tostring(runErr):sub(1, 100)) 
         return
     end
-
-    log("hub loaded successfully")
+    
+    log("Hub loaded successfully.")
 end
 
 main()
