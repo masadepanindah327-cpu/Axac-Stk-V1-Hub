@@ -1,6 +1,5 @@
 -- =========================================================================
 -- AXAC HUB - GITHUB RAW LOADER
--- Ganti RAW_URL di bawah dengan link raw script Axac Hub lo.
 -- =========================================================================
 
 local RAW_URL = "https://raw.githubusercontent.com/masadepanindah327-cpu/Axac-Stk-V1-Hub/refs/heads/main/main.lua"
