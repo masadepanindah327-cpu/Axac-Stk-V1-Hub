@@ -1,7 +1,7 @@
 -- =========================================================================
 -- AXAC HUB — COMBINED ULTIMATE (LORENZO + ZEERO)
 -- Fluent UI framework, Gold Accent branding, Watermark toggle.
--- Fixed: Added Floating Toggle to prevent losing UI.
+-- Fixed: Added Floating Toggle, Fast Auto Loot (Candy/Balloons/Loot), Instant Revive.
 -- =========================================================================
 
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
@@ -29,7 +29,7 @@ end)
 -- ==========================================
 local Window = Fluent:CreateWindow({
     Title = "Axac Hub",
-    SubTitle = "Combined Ultimate | v3.1",
+    SubTitle = "Combined Ultimate | v3.2",
     TabWidth = 160,
     Size = UDim2.fromOffset(620, 480),
     Theme = "Dark",
@@ -39,6 +39,7 @@ local Window = Fluent:CreateWindow({
 
 local Tabs = {
     Main = Window:AddTab({ Title = "Main", Icon = "shield" }),
+    AutoFarm = Window:AddTab({ Title = "Auto Farm", Icon = "zap" }), -- Tab Baru
     ESP = Window:AddTab({ Title = "ESP", Icon = "eye" }),
     Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
     Player = Window:AddTab({ Title = "Player", Icon = "user" }),
@@ -47,7 +48,7 @@ local Tabs = {
 }
 
 -- ==========================================
--- AXAC FLOATING TOGGLE (FIX UI ILANG)
+-- AXAC FLOATING TOGGLE
 -- ==========================================
 local ToggleGui = Instance.new("ScreenGui")
 ToggleGui.Name = "AxacToggleGui"
@@ -57,7 +58,7 @@ ToggleGui.Parent = (gethui and gethui()) or CoreGui
 
 local ToggleBtn = Instance.new("TextButton")
 ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
-ToggleBtn.Position = UDim2.new(0, 15, 0.4, 0) -- Posisi di kiri layar
+ToggleBtn.Position = UDim2.new(0, 15, 0.4, 0)
 ToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 ToggleBtn.Text = "AX"
 ToggleBtn.TextColor3 = Color3.fromRGB(250, 204, 21)
@@ -69,20 +70,16 @@ ToggleBtn.Parent = ToggleGui
 
 local UICorner = Instance.new("UICorner", ToggleBtn)
 UICorner.CornerRadius = UDim.new(0, 8)
-
 local UIStroke = Instance.new("UIStroke", ToggleBtn)
 UIStroke.Color = Color3.fromRGB(250, 204, 21)
 UIStroke.Thickness = 2
 
 local function ToggleWindow()
-    if Window.Root then
-        Window.Root.Visible = not Window.Root.Visible
-    end
+    if Window.Root then Window.Root.Visible = not Window.Root.Visible end
 end
 
 ToggleBtn.MouseButton1Click:Connect(ToggleWindow)
 
--- Deteksi kalau window Fluent ditutup pake X, tombol toggle tetep ada
 task.spawn(function()
     repeat task.wait(0.1) until Window.Root
     Window.Root.Destroying:Connect(function()
@@ -91,14 +88,13 @@ task.spawn(function()
     local closeBtn = Window.Root:FindFirstChild("CloseButton", true) or Window.Root:FindFirstChild("Close", true)
     if closeBtn then
         closeBtn.MouseButton1Click:Connect(function()
-            -- Biarin window nutup, tapi jangan hancurin ToggleGui
             if Window.Root then Window.Root.Visible = false end
         end)
     end
 end)
 
 -- ==========================================
--- AXAC WATERMARK (CIRI KHAS)
+-- AXAC WATERMARK
 -- ==========================================
 local WM = Instance.new("ScreenGui")
 WM.Name = "AxacWatermark"
@@ -113,14 +109,13 @@ WM_Frame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 WM_Frame.BackgroundTransparency = 0.2
 WM_Frame.BorderSizePixel = 0
 WM_Frame.Text = "AXAC"
-WM_Frame.TextColor3 = Color3.fromRGB(250, 204, 21) -- Gold
+WM_Frame.TextColor3 = Color3.fromRGB(250, 204, 21)
 WM_Frame.Font = Enum.Font.GothamBlack
 WM_Frame.TextSize = 12
 WM_Frame.Parent = WM
 
 local WM_Corner = Instance.new("UICorner", WM_Frame)
 WM_Corner.CornerRadius = UDim.new(0, 6)
-
 local WM_Stroke = Instance.new("UIStroke", WM_Frame)
 WM_Stroke.Color = Color3.fromRGB(250, 204, 21)
 WM_Stroke.Thickness = 1.5
@@ -163,8 +158,9 @@ _G.KillerAlert = false
 _G.AntiTrap = false
 _G.AntiAFK = false
 
+-- REVIVE INSTAN (Bypass prompt di tangan)
 Tabs.Main:AddToggle("AutoReviveToggle", {
-    Title = "Auto Revive (Revive Downed)",
+    Title = "Instant Auto Revive",
     Default = false,
     Callback = function(v)
         _G.AutoRevive = v
@@ -174,13 +170,17 @@ Tabs.Main:AddToggle("AutoReviveToggle", {
                     local myRoot = getRootPart()
                     if myRoot then
                         for _, p in pairs(Players:GetPlayers()) do
-                            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                                if not checkIsKiller(p) then
-                                    local hum = p.Character:FindFirstChildOfClass("Humanoid")
-                                    if hum and hum.Health > 0 and (p.Character:FindFirstChild("Downed") or hum.PlatformStand) then
-                                        if (myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude < 12 then
-                                            local prompt = p.Character:FindFirstChildWhichIsA("ProximityPrompt", true)
-                                            if prompt and fireproximityprompt then fireproximityprompt(prompt) end
+                            if p ~= LocalPlayer and p.Character then
+                                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                                local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+                                if hum and hum.Health > 0 and hrp and (p.Character:FindFirstChild("Downed") or hum.PlatformStand or p.Character:FindFirstChild("Ragdoll")) then
+                                    if not checkIsKiller(p) and (myRoot.Position - hrp.Position).Magnitude < 15 then
+                                        -- Cari prompt di seluruh Character (termasuk tangan)
+                                        for _, obj in pairs(p.Character:GetDescendants()) do
+                                            if obj:IsA("ProximityPrompt") then
+                                                fireproximityprompt(obj)
+                                                task.wait(0.1)
+                                            end
                                         end
                                     end
                                 end
@@ -188,7 +188,7 @@ Tabs.Main:AddToggle("AutoReviveToggle", {
                         end
                     end
                 end)
-                task.wait(0.2)
+                task.wait(0.1) -- Sangat cepat
             end
         end)
     end
@@ -266,8 +266,110 @@ Tabs.Main:AddToggle("AntiAFKToggle", {
 })
 
 -- ==========================================
--- [TAB 2: ESP]
+-- [TAB 2: AUTO FARM (NEW)]
 -- ==========================================
+_G.AutoLoot = false
+_G.AutoCandy = false
+_G.AutoBalloon = false
+
+local function collectItem(obj)
+    local myRoot = getRootPart()
+    if not myRoot or not obj or not obj.Parent then return end
+    local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
+    if prompt then
+        -- Fast TP ke item, lalu pencet prompt
+        myRoot.CFrame = obj.CFrame + Vector3.new(0, 2, 0)
+        task.wait(0.05) -- Delay cepat
+        fireproximityprompt(prompt)
+    else
+        -- Kalau nggak ada prompt, coba sentuh langsung
+        myRoot.CFrame = obj.CFrame + Vector3.new(0, 2, 0)
+    end
+end
+
+Tabs.AutoFarm:AddToggle("AutoLootToggle", {
+    Title = "Auto Loot (Random Items)",
+    Default = false,
+    Callback = function(v)
+        _G.AutoLoot = v
+        if v then
+            task.spawn(function()
+                while _G.AutoLoot do
+                    pcall(function()
+                        local myRoot = getRootPart()
+                        if myRoot then
+                            for _, obj in pairs(workspace:GetDescendants()) do
+                                -- Deteksi model atau part yang biasanya jadi Loot
+                                if (obj.Name:lower():find("loot") or obj.Name:lower():find("item")) and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                                    if obj:FindFirstChildWhichIsA("ProximityPrompt", true) then
+                                        collectItem(obj)
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.5)
+                end
+            end)
+        end
+    end
+})
+
+Tabs.AutoFarm:AddToggle("AutoCandyToggle", {
+    Title = "Auto Candy (Halloween)",
+    Default = false,
+    Callback = function(v)
+        _G.AutoCandy = v
+        if v then
+            task.spawn(function()
+                while _G.AutoCandy do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name:lower():find("candy") and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                                if obj:FindFirstChildWhichIsA("ProximityPrompt", true) then
+                                    collectItem(obj)
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end
+})
+
+Tabs.AutoFarm:AddToggle("AutoBalloonToggle", {
+    Title = "Auto Balloon",
+    Default = false,
+    Callback = function(v)
+        _G.AutoBalloon = v
+        if v then
+            task.spawn(function()
+                while _G.AutoBalloon do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name:lower():find("balloon") and (obj:IsA("Model") or obj:IsA("BasePart")) then
+                                if obj:FindFirstChildWhichIsA("ProximityPrompt", true) then
+                                    collectItem(obj)
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.3)
+                end
+            end)
+        end
+    end
+})
+
+-- ==========================================
+-- [TAB 3: ESP] (Sama seperti sebelumnya)
+-- ==========================================
+-- ... (Kode ESP tetap sama seperti yang lo kirim, gw singkat biar nggak kepanjangan, 
+-- tapi di file asli lo tinggal tambahin Tab AutoFarm di atas)
+-- Karena gw nulis full, gw tetep masukin kodenya di bawah ya.
+
 local ESPFolder = workspace:FindFirstChild("AxacESPFolder") or Instance.new("Folder", workspace)
 ESPFolder.Name = "AxacESPFolder"
 _G.ESP_Active = false
@@ -284,51 +386,10 @@ Tabs.ESP:AddToggle("ESPToggle", {
         if not v then ESPFolder:ClearAllChildren() end
     end
 })
-
-Tabs.ESP:AddToggle("TracersKiller", {
-    Title = "Tracer to Killer (Red)",
-    Default = false,
-    Callback = function(v)
-        _G.Tracers_Killer = v
-        if not v then
-            for _, child in pairs(ESPFolder:GetChildren()) do
-                if child.Name:find("Tracer_Killer_") then child:Destroy() end
-            end
-        end
-    end
-})
-
-Tabs.ESP:AddToggle("TracersSurvivors", {
-    Title = "Tracer to Survivors (Blue)",
-    Default = false,
-    Callback = function(v)
-        _G.Tracers_Survivors = v
-        if not v then
-            for _, child in pairs(ESPFolder:GetChildren()) do
-                if child.Name:find("Tracer_Survivor_") then child:Destroy() end
-            end
-        end
-    end
-})
-
-Tabs.ESP:AddToggle("ESPNames", {
-    Title = "Show Player Names",
-    Default = false,
-    Callback = function(v)
-        _G.ESP_ShowNames = v
-        if not v then
-            for _, child in pairs(ESPFolder:GetChildren()) do
-                if child.Name:find("Tag_") then child:Destroy() end
-            end
-        end
-    end
-})
-
-Tabs.ESP:AddToggle("ESPDistance", {
-    Title = "Show Distance",
-    Default = false,
-    Callback = function(v) _G.ESP_ShowDistance = v end
-})
+Tabs.ESP:AddToggle("TracersKiller", { Title = "Tracer to Killer (Red)", Default = false, Callback = function(v) _G.Tracers_Killer = v; if not v then for _, child in pairs(ESPFolder:GetChildren()) do if child.Name:find("Tracer_Killer_") then child:Destroy() end end end end })
+Tabs.ESP:AddToggle("TracersSurvivors", { Title = "Tracer to Survivors (Blue)", Default = false, Callback = function(v) _G.Tracers_Survivors = v; if not v then for _, child in pairs(ESPFolder:GetChildren()) do if child.Name:find("Tracer_Survivor_") then child:Destroy() end end end end })
+Tabs.ESP:AddToggle("ESPNames", { Title = "Show Player Names", Default = false, Callback = function(v) _G.ESP_ShowNames = v; if not v then for _, child in pairs(ESPFolder:GetChildren()) do if child.Name:find("Tag_") then child:Destroy() end end end end })
+Tabs.ESP:AddToggle("ESPDistance", { Title = "Show Distance", Default = false, Callback = function(v) _G.ESP_ShowDistance = v end })
 
 RunService.Heartbeat:Connect(function()
     if not _G.ESP_Active and not _G.Tracers_Killer and not _G.Tracers_Survivors and not _G.ESP_ShowNames and not _G.ESP_ShowDistance then
@@ -363,11 +424,9 @@ RunService.Heartbeat:Connect(function()
                         beam.Name = "Tracer_Killer_" .. p.Name
                         beam.Attachment0 = a0
                         beam.Attachment1 = a1
-                        beam.Width0 = 0.12
-                        beam.Width1 = 0.12
+                        beam.Width0 = 0.12; beam.Width1 = 0.12
                         beam.Color = ColorSequence.new(Color3.fromRGB(255, 0, 0))
-                        beam.FaceCamera = true
-                        beam.Parent = ESPFolder
+                        beam.FaceCamera = true; beam.Parent = ESPFolder
                     end
                 end
                 if _G.Tracers_Survivors and not isKiller then
@@ -377,13 +436,10 @@ RunService.Heartbeat:Connect(function()
                         local a1 = Instance.new("Attachment", p.Character.HumanoidRootPart)
                         beam = Instance.new("Beam")
                         beam.Name = "Tracer_Survivor_" .. p.Name
-                        beam.Attachment0 = a0
-                        beam.Attachment1 = a1
-                        beam.Width0 = 0.08
-                        beam.Width1 = 0.08
+                        beam.Attachment0 = a0; beam.Attachment1 = a1
+                        beam.Width0 = 0.08; beam.Width1 = 0.08
                         beam.Color = ColorSequence.new(Color3.fromRGB(0, 170, 255))
-                        beam.FaceCamera = true
-                        beam.Parent = ESPFolder
+                        beam.FaceCamera = true; beam.Parent = ESPFolder
                     end
                 end
             end
@@ -420,7 +476,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 -- ==========================================
--- [TAB 3: TELEPORT]
+-- [TAB 4: TELEPORT] (Sama seperti sebelumnya)
 -- ==========================================
 Tabs.Teleport:AddButton({
     Title = "Teleport to Spawn / Lobby",
@@ -454,7 +510,7 @@ Tabs.Teleport:AddButton({
 })
 
 -- ==========================================
--- [TAB 4: PLAYER]
+-- [TAB 5: PLAYER] (Sama seperti sebelumnya)
 -- ==========================================
 _G.SpeedBoost = false
 _G.CustomSpeed = 32
@@ -469,29 +525,10 @@ local function updateSpeed()
     if hum then hum.WalkSpeed = _G.SpeedBoost and _G.CustomSpeed or 16 end
 end
 
-Tabs.Player:AddToggle("SpeedBoostToggle", {
-    Title = "Speed Boost",
-    Default = false,
-    Callback = function(v) _G.SpeedBoost = v; updateSpeed() end
-})
-
-Tabs.Player:AddSlider("SpeedSlider", {
-    Title = "Walk Speed Value",
-    Min = 16, Max = 120, Default = 32, Rounding = 0,
-    Callback = function(v) _G.CustomSpeed = v; if _G.SpeedBoost then updateSpeed() end end
-})
-
-Tabs.Player:AddToggle("InfJumpToggle", {
-    Title = "Infinite Jump",
-    Default = false,
-    Callback = function(v) _G.InfJump = v end
-})
-
-Tabs.Player:AddToggle("NoclipToggle", {
-    Title = "Noclip (Walk Through Walls)",
-    Default = false,
-    Callback = function(v) _G.Noclip = v end
-})
+Tabs.Player:AddToggle("SpeedBoostToggle", { Title = "Speed Boost", Default = false, Callback = function(v) _G.SpeedBoost = v; updateSpeed() end })
+Tabs.Player:AddSlider("SpeedSlider", { Title = "Walk Speed Value", Min = 16, Max = 120, Default = 32, Rounding = 0, Callback = function(v) _G.CustomSpeed = v; if _G.SpeedBoost then updateSpeed() end end })
+Tabs.Player:AddToggle("InfJumpToggle", { Title = "Infinite Jump", Default = false, Callback = function(v) _G.InfJump = v end })
+Tabs.Player:AddToggle("NoclipToggle", { Title = "Noclip (Walk Through Walls)", Default = false, Callback = function(v) _G.Noclip = v end })
 
 Tabs.Player:AddToggle("SafeModeToggle", {
     Title = "Safe Mode (Auto TP from Killer)",
@@ -561,14 +598,10 @@ Tabs.Player:AddToggle("FlyToggle", {
     end
 })
 
-Tabs.Player:AddSlider("FlySpeedSlider", {
-    Title = "Fly Speed",
-    Min = 10, Max = 300, Default = 50, Rounding = 0,
-    Callback = function(v) _G.FlySpeed = v end
-})
+Tabs.Player:AddSlider("FlySpeedSlider", { Title = "Fly Speed", Min = 10, Max = 300, Default = 50, Rounding = 0, Callback = function(v) _G.FlySpeed = v end })
 
 -- ==========================================
--- [TAB 5: EFFECTS]
+-- [TAB 6: EFFECTS] (Sama seperti sebelumnya)
 -- ==========================================
 local originalFogEnd = Lighting.FogEnd
 local originalBrightness = Lighting.Brightness
@@ -583,41 +616,11 @@ Tabs.Effects:AddToggle("FullBright", {
         Lighting.ClockTime = v and 12 or originalClockTime
     end
 })
-
-Tabs.Effects:AddToggle("AmbientGlow", {
-    Title = "Ambient Light",
-    Default = false,
-    Callback = function(v)
-        Lighting.Ambient = v and Color3.fromRGB(180, 180, 180) or originalAmbient
-    end
-})
-
-Tabs.Effects:AddToggle("NoFog", {
-    Title = "No Fog",
-    Default = false,
-    Callback = function(v)
-        Lighting.FogEnd = v and 999999 or originalFogEnd
-    end
-})
-
-Tabs.Effects:AddToggle("NoShadows", {
-    Title = "Disable Shadows",
-    Default = false,
-    Callback = function(v) Lighting.GlobalShadows = not v end
-})
-
-Tabs.Effects:AddSlider("FOVSlider", {
-    Title = "FOV (Field of View)",
-    Min = 70, Max = 120, Default = 70, Rounding = 0,
-    Callback = function(v) workspace.CurrentCamera.FieldOfView = v end
-})
-
-Tabs.Effects:AddSlider("MaxZoom", {
-    Title = "Max Camera Distance",
-    Min = 12, Max = 250, Default = 12, Rounding = 0,
-    Callback = function(v) LocalPlayer.CameraMaxZoomDistance = v end
-})
-
+Tabs.Effects:AddToggle("AmbientGlow", { Title = "Ambient Light", Default = false, Callback = function(v) Lighting.Ambient = v and Color3.fromRGB(180, 180, 180) or originalAmbient end })
+Tabs.Effects:AddToggle("NoFog", { Title = "No Fog", Default = false, Callback = function(v) Lighting.FogEnd = v and 999999 or originalFogEnd end })
+Tabs.Effects:AddToggle("NoShadows", { Title = "Disable Shadows", Default = false, Callback = function(v) Lighting.GlobalShadows = not v end })
+Tabs.Effects:AddSlider("FOVSlider", { Title = "FOV (Field of View)", Min = 70, Max = 120, Default = 70, Rounding = 0, Callback = function(v) workspace.CurrentCamera.FieldOfView = v end })
+Tabs.Effects:AddSlider("MaxZoom", { Title = "Max Camera Distance", Min = 12, Max = 250, Default = 12, Rounding = 0, Callback = function(v) LocalPlayer.CameraMaxZoomDistance = v end })
 Tabs.Effects:AddToggle("XRayToggle", {
     Title = "X-Ray (Transparent Walls)",
     Default = false,
@@ -691,7 +694,6 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Hotkey Toggle (Right Ctrl)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
         ToggleWindow()
