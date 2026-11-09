@@ -1,5 +1,5 @@
 -- =========================================================================
--- AXAC HUB — V16.0 (Final: Race Fixed, Notif Sane, Prefix Meaningful)
+-- AXAC HUB — V16.2 (Delta Official Safe Build)
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -28,12 +28,18 @@ local Theme = {
     AccentDim = Color3.fromRGB(107, 12, 18), Gold = Color3.fromRGB(201, 162, 39),
 }
 
+-- 2. DELTA SAFE GUI INJECTION
+-- Hapus GUI lama jika ada (biar gak double saat re-execute)
+local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("AxacHub")
+if oldGui then oldGui:Destroy() end
+
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "AxacHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-pcall(function() syn.protect_gui(ScreenGui) end)
-ScreenGui.Parent = (gethui and gethui()) or CoreGui
+ScreenGui.DisplayOrder = 999
+-- FIX DELTA: Jangan pakai CoreGui atau gethui, pakai PlayerGui murni
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local function Make(class, props, parent)
     local obj = Instance.new(class)
@@ -42,7 +48,7 @@ local function Make(class, props, parent)
     return obj
 end
 
--- 2. STATE & TRACKERS
+-- 3. STATE & TRACKERS
 local Store = {
     Flags = {},
     Settings = { CustomSpeed = 32, FlySpeed = 50, FarmRange = 150, FarmRate = 0.2 },
@@ -82,7 +88,7 @@ local function RegisterThread(thread, flagName)
     table.insert(Store.Threads, { thread = thread, flag = flagName })
 end
 
--- 3. UI BUILDER
+-- 4. UI BUILDER
 local MainFrame = Make("Frame", { Size = UDim2.fromOffset(604, 412), Position = UDim2.new(0.5, -302, 0.5, -206), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ClipsDescendants = false, BackgroundTransparency = 1, ZIndex = 5 }, ScreenGui)
 Make("UICorner", { TopLeftRadius = UDim.new(0, 4), BottomRightRadius = UDim.new(0, 4), TopRightRadius = UDim.new(0, 0), BottomLeftRadius = UDim.new(0, 0) }, MainFrame)
 Make("UIStroke", { Color = Theme.Hairline, Thickness = 1, ApplyStrokeMode = Enum.ApplyStrokeMode.Border }, MainFrame)
@@ -115,7 +121,6 @@ CloseBtn.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
 
 local Sidebar = Make("Frame", { Size = UDim2.new(0, 155, 1, -6), Position = UDim2.new(0, 0, 0, 52), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0 }, MainFrame)
 
--- FIX: Prefix dot dengan makna (1 dot = Utility, 2 dot = Gameplay)
 local TabData = {
     { Name = "Main", Prefix = "·" }, { Name = "Farm", Prefix = "··" }, { Name = "Killer", Prefix = "··" },
     { Name = "Survivor", Prefix = "··" }, { Name = "ESP", Prefix = "·" }, { Name = "Player", Prefix = "·" },
@@ -128,11 +133,11 @@ for i, data in ipairs(TabData) do
     local TabBtn = Make("TextButton", { Size = UDim2.new(1, 0, 0, 36), Position = UDim2.new(0, 0, 0, (i - 1) * 36), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, Text = "  " .. data.Name, Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = Theme.Subtext, TextXAlignment = Enum.TextXAlignment.Left }, Sidebar)
     Make("TextLabel", { BackgroundTransparency = 1, Text = data.Prefix, Font = Enum.Font.Code, TextSize = 10, TextColor3 = Theme.Muted, TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0, 25, 1, 0), Position = UDim2.new(0, -30, 0, 0) }, TabBtn)
     local ActiveBar = Make("Frame", { BackgroundColor3 = Theme.Gold, BorderSizePixel = 0, Size = UDim2.new(0, 2, 1, 0), Position = UDim2.new(0, 0, 0, 0), Visible = false }, TabBtn)
-    
+
     TabBtn.MouseButton1Click:Connect(function()
         ActiveTab = data.Name
         for name, el in pairs(TabElements) do
-            el.content.Visible = (name == ActiveTab)
+            if el.content then el.content.Visible = (name == ActiveTab) end
             el.bar.Visible = (name == ActiveTab)
             el.btn.TextColor3 = (name == ActiveTab) and Theme.Text or Theme.Subtext
         end
@@ -145,17 +150,9 @@ TabElements["Main"].btn.TextColor3 = Theme.Text
 local ContentArea = Make("Frame", { Size = UDim2.new(1, -155, 1, -52), Position = UDim2.new(0, 155, 0, 52), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0 }, MainFrame)
 
 local NotifLabel = Make("TextLabel", {
-    Size = UDim2.new(0, 300, 0, 34),
-    Position = UDim2.new(0.5, -150, 0, -40),
-    BackgroundColor3 = Theme.AccentDim,
-    BackgroundTransparency = 0.1,
-    BorderSizePixel = 0,
-    Text = "",
-    Font = Enum.Font.GothamBold,
-    TextSize = 12,
-    TextColor3 = Theme.Text,
-    ZIndex = 100,
-    Visible = false,
+    Size = UDim2.new(0, 300, 0, 34), Position = UDim2.new(0.5, -150, 0, -40),
+    BackgroundColor3 = Theme.AccentDim, BackgroundTransparency = 0.1, BorderSizePixel = 0,
+    Text = "", Font = Enum.Font.GothamBold, TextSize = 12, TextColor3 = Theme.Text, ZIndex = 100, Visible = false,
 }, MainFrame)
 Make("UICorner", { CornerRadius = UDim.new(0, 4) }, NotifLabel)
 Make("Frame", { BackgroundColor3 = Theme.Accent, Size = UDim2.new(0, 2, 1, 0), Position = UDim2.new(0, 0, 0, 0) }, NotifLabel)
@@ -163,14 +160,11 @@ Make("Frame", { BackgroundColor3 = Theme.Accent, Size = UDim2.new(0, 2, 1, 0), P
 local function ShowNotif(text)
     Store.NotifGen = (Store.NotifGen or 0) + 1
     local myGen = Store.NotifGen
-    
-    NotifLabel.Text = text
-    NotifLabel.Visible = true
-    TweenService:Create(NotifLabel, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, -150, 0, 10) }):Play()
-    
+    NotifLabel.Text = text; NotifLabel.Visible = true
+    TweenService:Create(NotifLabel, TweenInfo.new(0.14), { Position = UDim2.new(0.5, -150, 0, 10) }):Play()
     task.delay(3, function()
         if Store.NotifGen ~= myGen then return end
-        TweenService:Create(NotifLabel, TweenInfo.new(0.14, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = UDim2.new(0.5, -150, 0, -40) }):Play()
+        TweenService:Create(NotifLabel, TweenInfo.new(0.14), { Position = UDim2.new(0.5, -150, 0, -40) }):Play()
         task.wait(0.14)
         if Store.NotifGen == myGen and NotifLabel then NotifLabel.Visible = false end
     end)
@@ -201,7 +195,7 @@ local function AddToggle(parent, id, text, default, callback)
     Make("UICorner", { CornerRadius = UDim.new(0, 2) }, Track)
     local Thumb = Make("Frame", { Size = UDim2.new(0, 10, 0, 10), Position = default and UDim2.new(1, -11, 0, 1) or UDim2.new(0, 1, 0, 1), BackgroundColor3 = default and Theme.Accent or Theme.Text, BorderSizePixel = 0 }, Track)
     Make("UICorner", { CornerRadius = UDim.new(0, 1) }, Thumb)
-    
+
     local state = default
     local function Update(v)
         if state == v then return end
@@ -210,9 +204,7 @@ local function AddToggle(parent, id, text, default, callback)
         TweenService:Create(Thumb, TweenInfo.new(0.12), { Position = state and UDim2.new(1, -11, 0, 1) or UDim2.new(0, 1, 0, 1), BackgroundColor3 = state and Theme.Accent or Theme.Text }):Play()
         if callback then callback(state) end
     end
-    
     Make("TextButton", { Size = UDim2.new(1, 0, 1, 0), BackgroundTransparency = 1, Text = "" }, Row).MouseButton1Click:Connect(function() Update(not state) end)
-    
     local handle = { Set = function(v) Update(v) end }
     Store.Toggles[id] = handle
     return handle
@@ -221,25 +213,19 @@ end
 local function AddSlider(parent, id, text, min, max, default, isDecimal, callback)
     local Row = Make("Frame", { Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1, LayoutOrder = #parent:GetChildren() }, parent)
     local Lbl = Make("TextLabel", { BackgroundTransparency = 1, Text = text, Font = Enum.Font.Gotham, TextSize = 12, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -50, 0, 20) }, Row)
-    
     local defaultStr = isDecimal and string.format("%.2fs", default) or tostring(default)
     local ValLbl = Make("TextLabel", { BackgroundTransparency = 1, Text = defaultStr, Font = Enum.Font.Code, TextSize = 11, TextColor3 = Theme.Gold, TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0, 50, 0, 20), Position = UDim2.new(1, -50, 0, 0) }, Row)
     local BarBg = Make("Frame", { Size = UDim2.new(1, 0, 0, 2), Position = UDim2.new(0, 0, 0, 25), BackgroundColor3 = Theme.Hairline, BorderSizePixel = 0 }, Row)
     local Fill = Make("Frame", { Size = UDim2.new((default - min)/(max - min), 0, 1, 0), BackgroundColor3 = Theme.Accent, BorderSizePixel = 0 }, BarBg)
-    
+
     local draggingSlider = false
     local function Update(v)
         local clamped = math.clamp(v, min, max)
         local relX = (clamped - min) / (max - min)
         Fill.Size = UDim2.new(relX, 0, 1, 0)
-        if isDecimal then
-            ValLbl.Text = string.format("%.2fs", clamped)
-        else
-            ValLbl.Text = tostring(math.floor(clamped))
-        end
+        if isDecimal then ValLbl.Text = string.format("%.2fs", clamped) else ValLbl.Text = tostring(math.floor(clamped)) end
         if callback then callback(clamped) end
     end
-    
     local conn1 = BarBg.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingSlider = true end end)
     local conn2 = UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then draggingSlider = false end end)
     local conn3 = UserInputService.InputChanged:Connect(function(input)
@@ -248,7 +234,6 @@ local function AddSlider(parent, id, text, min, max, default, isDecimal, callbac
             Update(min + (max - min) * relX)
         end
     end)
-    
     local handle = { Set = function(v) Update(v) end, Destroy = function() conn1:Disconnect(); conn2:Disconnect(); conn3:Disconnect() end }
     Store.Sliders[id] = handle
     return handle
@@ -263,7 +248,7 @@ local function AddButton(parent, text, callback, isDestructive)
     Btn.MouseButton1Click:Connect(function() if callback then callback() end end)
 end
 
--- 4. HELPER FUNCTIONS
+-- 5. HELPERS
 local KILLER_TOOLS = {["Knife"]=true, ["Axe"]=true, ["Bat"]=true, ["Cleaver"]=true, ["Scythe"]=true}
 local function checkIsKiller(p)
     if not p or not p.Character then return false end
@@ -285,7 +270,7 @@ local function isPlayerDowned(char)
     return (bleed and bleed.Enabled) or hum.PlatformStand or (hum.Health <= 0)
 end
 
--- 5. FEATURE PAGES
+-- 6. FEATURE PAGES
 local ESPFolder = Instance.new("Folder"); ESPFolder.Name = "AxacESPFolder"; ESPFolder.Parent = ScreenGui
 
 local MainPage = CreatePage("Main")
@@ -328,8 +313,7 @@ AddToggle(MainPage, "KillerAlert", "Killer Proximity Alert", false, function(v)
                             if p ~= LocalPlayer and checkIsKiller(p) and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
                                 local dist = math.floor((myRoot.Position - p.Character.HumanoidRootPart.Position).Magnitude)
                                 if dist <= 75 and (tick() - lastAlert > 4) then
-                                    lastAlert = tick()
-                                    ShowNotif("KILLER: " .. p.Name .. " (" .. dist .. "m)")
+                                    lastAlert = tick(); ShowNotif("KILLER: " .. p.Name .. " (" .. dist .. "m)")
                                 end
                             end
                         end
@@ -372,38 +356,38 @@ local farmThread = task.spawn(function()
         local rate = Store.Settings.FarmRate
         if not rate or rate <= 0 then rate = 0.2 end
         task.wait(rate)
-        
+
         if not Store.Flags.AutoLoot and not Store.Flags.AutoBalloon then continue end
         if isPlayerDowned(LocalPlayer.Character) then continue end
-        
+
         local myRoot = getRootPart()
         if not myRoot then continue end
-        
+
         local names = {}
         if Store.Flags.AutoLoot then table.insert(names, "candy"); table.insert(names, "sweet"); table.insert(names, "treat"); table.insert(names, "present") end
         if Store.Flags.AutoBalloon then table.insert(names, "balloon") end
-        
+
         local nearest, minDist = nil, math.huge
         local now = tick()
-        
+
         for _, obj in pairs(workspace:GetDescendants()) do
             if not obj.Parent then continue end
             local match = false
             for _, name in ipairs(names) do if obj.Name:lower():find(name) then match = true; break end end
             if not match then continue end
-            
+
             local targetPart = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildWhichIsA("BasePart")) or (obj:IsA("BasePart") and obj)
             if not targetPart then continue end
-            
+
             if Store.Blacklist[obj] and Store.Blacklist[obj] > now then continue end
-            
+
             local d = (myRoot.Position - targetPart.Position).Magnitude
             if d > 5 and d < Store.Settings.FarmRange and d < minDist then
                 local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
                 if prompt then minDist = d; nearest = { obj = obj, part = targetPart, prompt = prompt, type = obj.Name:lower():find("balloon") and "balloon" or "candy" } end
             end
         end
-        
+
         if nearest then
             lastHadTarget = true
             local offset = nearest.type == "balloon" and Vector3.new(0, 0, 0) or Vector3.new(0, 2, 0)
@@ -413,10 +397,8 @@ local farmThread = task.spawn(function()
             task.wait(0.3)
             if nearest.obj.Parent then Store.Blacklist[nearest.obj] = tick() + 5 end
         else
-            -- FIX: Notif rate 60s (bukan 30s)
             if lastHadTarget and tick() - Store.LastFarmWarn > 60 then
-                Store.LastFarmWarn = tick()
-                ShowNotif("[Farm] No target found.")
+                Store.LastFarmWarn = tick(); ShowNotif("[Farm] No target found.")
             end
             lastHadTarget = false
         end
@@ -433,7 +415,6 @@ AddToggle(KillerPage, "AutoM1", "Auto M1 (Click Spam)", false, function(v)
             while Store.Flags.AutoM1 do
                 pcall(function()
                     if not checkIsKiller(LocalPlayer) then return end
-                    
                     local target = nil
                     local myChar = LocalPlayer.Character
                     if myChar and myChar:FindFirstChild("HumanoidRootPart") then
@@ -445,7 +426,6 @@ AddToggle(KillerPage, "AutoM1", "Auto M1 (Click Spam)", false, function(v)
                             end
                         end
                     end
-                    
                     local cam = workspace.CurrentCamera
                     if target and cam then
                         local screenPos, onScreen = cam:WorldToViewportPoint(target.Position)
@@ -554,7 +534,6 @@ AddToggle(PlayerPage, "Fly", "Fly", false, function(v)
             end
             local cam = workspace.CurrentCamera
             if not cam then return end
-            
             local dir = Vector3.zero
             if UserInputService:IsKeyDown(Enum.KeyCode.W) then dir += cam.CFrame.LookVector end
             if UserInputService:IsKeyDown(Enum.KeyCode.S) then dir -= cam.CFrame.LookVector end
@@ -603,7 +582,7 @@ AddButton(ConfigPage, "Unload Hub", function()
     if ScreenGui then ScreenGui:Destroy() end
 end, true)
 
--- 6. BACKGROUND LOOPS
+-- 7. BACKGROUND LOOPS
 local logicThread = task.spawn(function()
     while task.wait(0.1) do
         if LocalPlayer.Character then
@@ -612,7 +591,7 @@ local logicThread = task.spawn(function()
                 if Store.Flags.SpeedBoost then hum.WalkSpeed = Store.Settings.CustomSpeed
                 elseif not Store.Flags.SpeedBoost and hum.WalkSpeed ~= 16 then hum.WalkSpeed = 16 end
             end
-            
+
             if Store.Flags.Noclip then
                 for _, part in pairs(LocalPlayer.Character:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -651,7 +630,7 @@ local espThread = task.spawn(function()
                         hl.FillColor = isKiller and Theme.Accent or Color3.fromRGB(0, 120, 255)
                         hl.FillTransparency = isKiller and 0.2 or 0.5
                     end
-                    
+
                     if Store.Flags.Tracer_Killer and isKiller and myRoot then
                         local beam = ESPFolder:FindFirstChild("Tracer_" .. p.Name)
                         if not beam then
@@ -660,7 +639,7 @@ local espThread = task.spawn(function()
                             beam.Width0 = 0.12; beam.Width1 = 0.12; beam.Color = ColorSequence.new(Theme.Accent); beam.FaceCamera = true; beam.Parent = ESPFolder
                         end
                     end
-                    
+
                     if Store.Flags.ESP_Dist then
                         local bbg = ESPFolder:FindFirstChild("Tag_" .. p.Name)
                         if not bbg then
@@ -694,22 +673,16 @@ local antiTrapThread = task.spawn(function()
 end)
 RegisterThread(antiTrapThread, "AntiTrap")
 
--- FIX: Noclip & Fly Race Condition di CharacterAdded
 Store.Connections.CharacterAdded = LocalPlayer.CharacterAdded:Connect(function()
     task.wait(0.2)
-    
-    -- FIX: Reset Noclip parts lama sebelum replace
     for part, orig in pairs(Store.NoclipParts) do
         if part and part.Parent then part.CanCollide = orig end
     end
     Store.NoclipParts = setmetatable({}, {__mode = "k"})
-    
-    -- FIX: Cleanup Fly connection eksplisit
     if Store.Connections.Fly then
         pcall(function() Store.Connections.Fly:Disconnect() end)
         Store.Connections.Fly = nil
     end
-    
     if Store.Flags.Fly then Store.Toggles["Fly"]:Set(false) end
     if Store.Flags.Noclip then Store.Toggles["Noclip"]:Set(false) end
     if Store.Flags.AutoM1 then Store.Toggles["AutoM1"]:Set(false) end
