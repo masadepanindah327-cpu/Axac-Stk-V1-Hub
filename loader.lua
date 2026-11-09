@@ -1,116 +1,141 @@
--- =========================================================================
--- AXAC HUB - GITHUB RAW LOADER
--- =========================================================================
+--[[
+    AxacHub Loader
+    Fetches the hub from GitHub raw and injects it into the current executor.
+    Repo: masadepanindah327-cpu/Axac-Stk-V1-Hub
+    Target file: main.lua
+--]]
 
-local RAW_URL = "https://raw.githubusercontent.com/masadepanindah327-cpu/Axac-Stk-V1-Hub/refs/heads/main/main.lua"
+local CONFIG = {
+    Name        = "AxacHub",
+    RawURL      = "https://raw.githubusercontent.com/masadepanindah327-cpu/Axac-Stk-V1-Hub/main/main.lua",
+    FallbackURL = "https://raw.githubusercontent.com/masadepanindah327-cpu/Axac-Stk-V1-Hub/refs/heads/main/main.lua",
+    LogPrefix   = "[AxacLoader]",
+}
 
-local HttpService = game:GetService("HttpService")
-local CoreGui = game:GetService("CoreGui")
-local Players = game:GetService("Players")
+--=====================================================================
+-- ENVIRONMENT
+--=====================================================================
+local StarterGui = game:GetService("StarterGui")
 
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "AxacLoaderGUI"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-ScreenGui.DisplayOrder = 999
-ScreenGui.Parent = (gethui and gethui()) or CoreGui
-
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 300, 0, 100)
-Main.Position = UDim2.new(0.5, -150, 0.5, -50)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
-Main.BorderSizePixel = 0
-Main.Parent = ScreenGui
-
-local Corner = Instance.new("UICorner", Main)
-Corner.CornerRadius = UDim.new(0, 10)
-
-local Stroke = Instance.new("UIStroke", Main)
-Stroke.Color = Color3.fromRGB(250, 204, 21)
-Stroke.Thickness = 1.5
-
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.BackgroundTransparency = 1
-Title.Text = "AXAC LOADER"
-Title.TextColor3 = Color3.fromRGB(250, 204, 21)
-Title.Font = Enum.Font.GothamBlack
-Title.TextSize = 18
-Title.Parent = Main
-
-local Status = Instance.new("TextLabel")
-Status.Size = UDim2.new(1, 0, 0, 20)
-Status.Position = UDim2.new(0, 0, 0, 45)
-Status.BackgroundTransparency = 1
-Status.Text = "Connecting to GitHub..."
-Status.TextColor3 = Color3.fromRGB(200, 200, 200)
-Status.Font = Enum.Font.GothamMedium
-Status.TextSize = 12
-Status.Parent = Main
-
-local BarBG = Instance.new("Frame")
-BarBG.Size = UDim2.new(0.8, 0, 0, 4)
-BarBG.Position = UDim2.new(0.1, 0, 0, 80)
-BarBG.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-BarBG.BorderSizePixel = 0
-BarBG.Parent = Main
-
-local UICornerBar = Instance.new("UICorner", BarBG)
-UICornerBar.CornerRadius = UDim.new(0, 2)
-
-local BarFill = Instance.new("Frame")
-BarFill.Size = UDim2.new(0, 0, 1, 0)
-BarFill.BackgroundColor3 = Color3.fromRGB(250, 204, 21)
-BarFill.BorderSizePixel = 0
-BarFill.Parent = BarBG
-
-local UICornerFill = Instance.new("UICorner", BarFill)
-UICornerFill.CornerRadius = UDim.new(0, 2)
-
-local function SetStatus(txt)
-    Status.Text = txt
+local function log(msg)
+    warn(string.format("%s %s", CONFIG.LogPrefix, msg))
 end
 
-local function SetProgress(p)
-    BarFill:TweenSize(UDim2.new(p, 0, 1, 0), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
-end
-
-task.spawn(function()
-    SetProgress(0.3)
-    SetStatus("Fetching script...")
-    task.wait(0.3)
-
-    local success, source = pcall(function()
-        return game:HttpGet(RAW_URL, true)
+local function notify(title, text)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title,
+            Text  = text,
+            Duration = 4,
+        })
     end)
+end
 
-    if not success or not source or #source == 0 then
-        SetProgress(0)
-        SetStatus("Failed to fetch. Check URL/connection.")
-        task.wait(3)
-        ScreenGui:Destroy()
+--=====================================================================
+-- FETCH
+--=====================================================================
+local function fetch(url)
+    local ok, result = pcall(function()
+        if syn and syn.request then
+            local res = syn.request({ Url = url, Method = "GET" })
+            if res.StatusCode ~= 200 then error("http " .. tostring(res.StatusCode)) end
+            return res.Body
+        elseif http and http.request then
+            local res = http.request({ Url = url, Method = "GET" })
+            if res.StatusCode ~= 200 then error("http " .. tostring(res.StatusCode)) end
+            return res.Body
+        elseif request then
+            local res = request({ Url = url, Method = "GET" })
+            if res.StatusCode ~= 200 then error("http " .. tostring(res.StatusCode)) end
+            return res.Body
+        elseif game.HttpGet then
+            return game:HttpGet(url, true)
+        elseif game.HttpGetAsync then
+            return game:HttpGetAsync(url)
+        end
+        error("no HttpGet available in this executor")
+    end)
+    if not ok then
+        return nil, tostring(result)
+    end
+    if type(result) ~= "string" or #result < 32 then
+        return nil, "empty or truncated response"
+    end
+    return result
+end
+
+--=====================================================================
+-- VALIDATE
+--=====================================================================
+local function validate(source)
+    if not source or type(source) ~= "string" then
+        return false, "source is not a string"
+    end
+    if #source < 500 then
+        return false, "source too small (" .. #source .. " bytes)"
+    end
+    if source:find("<html", 1, true) or source:find("<!DOCTYPE", 1, true) then
+        return false, "received an HTML page, not raw Lua (URL likely wrong)"
+    end
+    if source:find("404: Not Found", 1, true) then
+        return false, "github returned 404 for the raw file"
+    end
+    if not source:find("AXAC HUB", 1, true) and not source:find("AxacHub", 1, true) then
+        return false, "source does not contain the hub signature"
+    end
+    return true
+end
+
+--=====================================================================
+-- EXECUTE
+--=====================================================================
+local function run(source)
+    local fn, err = loadstring(source)
+    if not fn then
+        return false, "loadstring failed: " .. tostring(err)
+    end
+    local ok, runErr = pcall(fn)
+    if not ok then
+        return false, "runtime error: " .. tostring(runErr)
+    end
+    return true
+end
+
+--=====================================================================
+-- MAIN
+--=====================================================================
+local function main()
+    log("fetching " .. CONFIG.RawURL)
+
+    local source, fetchErr = fetch(CONFIG.RawURL)
+    if not source then
+        log("primary fetch failed: " .. tostring(fetchErr))
+        log("trying fallback: " .. CONFIG.FallbackURL)
+        source, fetchErr = fetch(CONFIG.FallbackURL)
+        if not source then
+            log("fallback failed: " .. tostring(fetchErr))
+            notify(CONFIG.Name, "Loader could not reach GitHub. Check URL or connection.")
+            return
+        end
+    end
+
+    local valid, validErr = validate(source)
+    if not valid then
+        log("validation failed: " .. tostring(validErr))
+        notify(CONFIG.Name, "Hub source invalid: " .. tostring(validErr))
         return
     end
 
-    SetProgress(0.7)
-    SetStatus("Compiling script...")
-    task.wait(0.3)
+    log(string.format("fetched %d bytes, executing", #source))
 
-    local compiled, err = pcall(function()
-        local f = loadstring(source)
-        if not f then error("Compilation failed.") end
-        f()
-    end)
-
-    SetProgress(1)
-    if compiled then
-        SetStatus("Loaded!")
-        task.wait(0.5)
-    else
-        SetStatus("Execution error.")
-        warn("[Axac Loader] " .. tostring(err))
-        task.wait(2)
+    local ok, runErr = run(source)
+    if not ok then
+        log("execute failed: " .. tostring(runErr))
+        notify(CONFIG.Name, "Hub crashed on execute. Check console for details.")
+        return
     end
 
-    ScreenGui:Destroy()
-end)
+    log("hub loaded successfully")
+end
+
+main()
