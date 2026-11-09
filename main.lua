@@ -1,7 +1,7 @@
 -- =========================================================================
 -- AXAC HUB — COMBINED ULTIMATE (LORENZO + ZEERO)
 -- Fluent UI framework, Gold Accent branding, Watermark toggle.
--- Semua fitur STK, ESP, Teleport, Player, Effects, AutoFarm dijadikan satu.
+-- Fixed: Added Floating Toggle to prevent losing UI.
 -- =========================================================================
 
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
@@ -29,7 +29,7 @@ end)
 -- ==========================================
 local Window = Fluent:CreateWindow({
     Title = "Axac Hub",
-    SubTitle = "Combined Ultimate | v3.0",
+    SubTitle = "Combined Ultimate | v3.1",
     TabWidth = 160,
     Size = UDim2.fromOffset(620, 480),
     Theme = "Dark",
@@ -45,6 +45,57 @@ local Tabs = {
     Effects = Window:AddTab({ Title = "Effects", Icon = "sun" }),
     Settings = Window:AddTab({ Title = "Settings", Icon = "settings" }),
 }
+
+-- ==========================================
+-- AXAC FLOATING TOGGLE (FIX UI ILANG)
+-- ==========================================
+local ToggleGui = Instance.new("ScreenGui")
+ToggleGui.Name = "AxacToggleGui"
+ToggleGui.ResetOnSpawn = false
+ToggleGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ToggleGui.Parent = (gethui and gethui()) or CoreGui
+
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0, 45, 0, 45)
+ToggleBtn.Position = UDim2.new(0, 15, 0.4, 0) -- Posisi di kiri layar
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
+ToggleBtn.Text = "AX"
+ToggleBtn.TextColor3 = Color3.fromRGB(250, 204, 21)
+ToggleBtn.Font = Enum.Font.GothamBlack
+ToggleBtn.TextSize = 18
+ToggleBtn.BorderSizePixel = 0
+ToggleBtn.Draggable = true
+ToggleBtn.Parent = ToggleGui
+
+local UICorner = Instance.new("UICorner", ToggleBtn)
+UICorner.CornerRadius = UDim.new(0, 8)
+
+local UIStroke = Instance.new("UIStroke", ToggleBtn)
+UIStroke.Color = Color3.fromRGB(250, 204, 21)
+UIStroke.Thickness = 2
+
+local function ToggleWindow()
+    if Window.Root then
+        Window.Root.Visible = not Window.Root.Visible
+    end
+end
+
+ToggleBtn.MouseButton1Click:Connect(ToggleWindow)
+
+-- Deteksi kalau window Fluent ditutup pake X, tombol toggle tetep ada
+task.spawn(function()
+    repeat task.wait(0.1) until Window.Root
+    Window.Root.Destroying:Connect(function()
+        ToggleGui:Destroy()
+    end)
+    local closeBtn = Window.Root:FindFirstChild("CloseButton", true) or Window.Root:FindFirstChild("Close", true)
+    if closeBtn then
+        closeBtn.MouseButton1Click:Connect(function()
+            -- Biarin window nutup, tapi jangan hancurin ToggleGui
+            if Window.Root then Window.Root.Visible = false end
+        end)
+    end
+end)
 
 -- ==========================================
 -- AXAC WATERMARK (CIRI KHAS)
@@ -640,9 +691,9 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
--- Hotkey Toggle
+-- Hotkey Toggle (Right Ctrl)
 UserInputService.InputBegan:Connect(function(input, gameProcessed)
     if not gameProcessed and input.KeyCode == Enum.KeyCode.RightControl then
-        Window.Root.Visible = not Window.Root.Visible
+        ToggleWindow()
     end
 end)
