@@ -1,5 +1,5 @@
 -- =========================================================================
--- AXAC HUB — V18.0 (Anti-Slop Editorial + Splash + Smooth Tween)
+-- AXAC HUB — V19.0 (Curtain Splash, Smooth Orb UI)
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -73,33 +73,58 @@ local function RegisterThread(thread, flagName)
 end
 
 -- =========================================================================
--- 4. SPLASH SCREEN (KEYFRAME SMOOTH)
+-- 4. SPLASH SCREEN (CURTAIN ANIMATION)
 -- =========================================================================
 local Splash = Make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ZIndex = 200 }, ScreenGui)
 
-local SplashText = Make("TextLabel", {
-    Size = UDim2.fromOffset(200, 50), Position = UDim2.new(0.5, -100, 0.5, -25),
-    BackgroundTransparency = 1, Text = "AXAC", Font = Enum.Font.Garamond, TextSize = 48,
-    TextColor3 = Theme.Text, TextTransparency = 1, ZIndex = 201,
+-- Area Teks Splash
+local SplashContainer = Make("Frame", {
+    Size = UDim2.fromOffset(300, 100), Position = UDim2.new(0.5, -150, 0.5, -50),
+    BackgroundTransparency = 1, ZIndex = 201
 }, Splash)
+
+local SplashText = Make("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 60), Position = UDim2.new(0, 0, 0, 0),
+    BackgroundTransparency = 1, Text = "AXAC", Font = Enum.Font.Garamond, TextSize = 56,
+    TextColor3 = Theme.Text, TextTransparency = 1,
+}, SplashContainer)
+
+local SplashSub = Make("TextLabel", {
+    Size = UDim2.new(1, 0, 0, 20), Position = UDim2.new(0, 0, 0, 65),
+    BackgroundTransparency = 1, Text = "STK HUB", Font = Enum.Font.Code, TextSize = 12,
+    TextColor3 = Theme.Gold, TextTransparency = 1,
+}, SplashContainer)
 
 local SplashLine = Make("Frame", {
-    Size = UDim2.fromOffset(0, 1), Position = UDim2.new(0.5, 0, 0.5, 30),
-    BackgroundColor3 = Theme.Accent, BorderSizePixel = 0, ZIndex = 201,
-}, Splash)
+    Size = UDim2.fromOffset(0, 1), Position = UDim2.new(0.5, 0, 0, 58),
+    BackgroundColor3 = Theme.Accent, BorderSizePixel = 0,
+}, SplashContainer)
+
+-- Tirai (Curtain) Atas & Bawah
+local CurtainTop = Make("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ZIndex = 202 }, Splash)
+local CurtainBot = Make("Frame", { Size = UDim2.new(1, 0, 0.5, 0), Position = UDim2.new(0, 0, 0.5, 0), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ZIndex = 202 }, Splash)
 
 task.spawn(function()
-    -- Animasi 1: Fade in text & expand line
-    TweenService:Create(SplashText, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextTransparency = 0, Position = UDim2.new(0.5, -100, 0.5, -35) }):Play()
-    TweenService:Create(SplashLine, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(120, 1) }):Play()
-    task.wait(1.5)
-
-    -- Animasi 2: Fade out splash
-    TweenService:Create(SplashText, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { TextTransparency = 1 }):Play()
-    TweenService:Create(SplashLine, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Size = UDim2.fromOffset(0, 1) }):Play()
-    task.wait(0.4)
+    task.wait(0.1)
+    -- 1. Fade in teks & garis
+    TweenService:Create(SplashText, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play()
+    TweenService:Create(SplashSub, TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { TextTransparency = 0 }):Play()
+    TweenService:Create(SplashLine, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = UDim2.fromOffset(200, 1) }):Play()
     
+    task.wait(1.5) -- Tahan splash sebentar
+    
+    -- 2. Animasi tutup (Curtain): Tirai atas & bawah maju ke tengah
+    TweenService:Create(SplashText, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+    TweenService:Create(SplashSub, TweenInfo.new(0.3), { TextTransparency = 1 }):Play()
+    TweenService:Create(SplashLine, TweenInfo.new(0.3), { Size = UDim2.fromOffset(0, 1) }):Play()
+    
+    TweenService:Create(CurtainTop, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
+    TweenService:Create(CurtainBot, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
+    
+    task.wait(0.4)
     Splash:Destroy()
+    
+    -- 3. Buka UI utama & Orb
     Store.IsMenuOpen = true
     if _G.AxacOpenMenu then _G.AxacOpenMenu() end
 end)
@@ -107,7 +132,11 @@ end)
 -- =========================================================================
 -- 5. UI BUILDER (ANTI-SLOP)
 -- =========================================================================
-local MainFrame = Make("Frame", { Size = UDim2.fromOffset(604, 412), Position = UDim2.new(0.5, -302, 0.5, -206), BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ClipsDescendants = false, BackgroundTransparency = 1, ZIndex = 5, Visible = false }, ScreenGui)
+local MainFrame = Make("Frame", { 
+    Size = UDim2.fromOffset(604, 412), Position = UDim2.new(0.5, -302, 0.5, -150), -- Mulai dari bawah dikit
+    BackgroundColor3 = Theme.Canvas, BorderSizePixel = 0, ClipsDescendants = false, 
+    BackgroundTransparency = 1, ZIndex = 5, Visible = false 
+}, ScreenGui)
 Make("UICorner", { TopLeftRadius = UDim.new(0, 4), BottomRightRadius = UDim.new(0, 4), TopRightRadius = UDim.new(0, 0), BottomLeftRadius = UDim.new(0, 0) }, MainFrame)
 Make("UIStroke", { Color = Theme.Hairline, Thickness = 1 }, MainFrame)
 
@@ -189,7 +218,7 @@ local function ShowNotif(text)
 end
 
 -- =========================================================================
--- 6. FLOATING ORB SHORTCUT
+-- 6. FLOATING ORB (SMOOTH TRANSITION)
 -- =========================================================================
 local Orb = Make("TextButton", {
     Size = UDim2.fromOffset(46, 46), Position = UDim2.new(0, 20, 0.5, -23),
@@ -207,11 +236,18 @@ local function ToggleGUI(show)
     if show then
         Orb.Visible = false
         MainFrame.Visible = true
-        MainFrame.Position = UDim2.new(0.5, -302, 0.5, -190)
-        TweenService:Create(MainFrame, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { BackgroundTransparency = 0, Position = UDim2.new(0.5, -302, 0.5, -206) }):Play()
+        MainFrame.Position = UDim2.new(0.5, -302, 0.5, -150) -- Posisi awal agak ke bawah
+        -- Animasi naik & pudar masuk
+        TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { BackgroundTransparency = 0, Position = UDim2.new(0.5, -302, 0.5, -206) }):Play()
     else
-        TweenService:Create(MainFrame, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1 }):Play()
-        task.delay(0.16, function() if not Store.IsMenuOpen then MainFrame.Visible = false; Orb.Visible = true end end)
+        -- Animasi turun & pudar keluar
+        TweenService:Create(MainFrame, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { BackgroundTransparency = 1, Position = UDim2.new(0.5, -302, 0.5, -150) }):Play()
+        task.delay(0.2, function() 
+            if not Store.IsMenuOpen then 
+                MainFrame.Visible = false
+                Orb.Visible = true 
+            end 
+        end)
     end
 end
 
@@ -307,7 +343,7 @@ local function AddButton(parent, text, callback, isDestructive)
 end
 
 -- =========================================================================
--- 8. FEATURE LOGIC & BACKGROUND LOOPS (Sama dengan V17)
+-- 8. FEATURE LOGIC & BACKGROUND LOOPS (Sama dengan V18)
 -- =========================================================================
 local KILLER_TOOLS = {["Knife"]=true, ["Axe"]=true, ["Bat"]=true, ["Cleaver"]=true, ["Scythe"]=true}
 local function checkIsKiller(p)
@@ -754,7 +790,7 @@ end)
 
 UserInputService.JumpRequest:Connect(function()
     if Store.Flags.InfJump and LocalPlayer.Character then
-        local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+    local hum = LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
         if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
     end
 end)
