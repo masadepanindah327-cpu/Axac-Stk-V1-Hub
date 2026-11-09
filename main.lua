@@ -1,5 +1,5 @@
 -- =========================================================================
--- AXAC HUB — V16.2 (Delta Official Safe Build)
+-- AXAC HUB — V16.3 (Final: Font Fix, Delta Native)
 -- =========================================================================
 
 local Players = game:GetService("Players")
@@ -29,7 +29,6 @@ local Theme = {
 }
 
 -- 2. DELTA SAFE GUI INJECTION
--- Hapus GUI lama jika ada (biar gak double saat re-execute)
 local oldGui = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("AxacHub")
 if oldGui then oldGui:Destroy() end
 
@@ -38,7 +37,6 @@ ScreenGui.Name = "AxacHub"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.DisplayOrder = 999
--- FIX DELTA: Jangan pakai CoreGui atau gethui, pakai PlayerGui murni
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 
 local function Make(class, props, parent)
@@ -111,7 +109,8 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 local TitleBar = Make("Frame", { Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = Theme.Elevated, BorderSizePixel = 0 }, MainFrame)
-Make("TextLabel", { BackgroundTransparency = 1, Text = "AXAC HUB", Font = Enum.Font.CormorantGaramond, TextSize = 22, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0, 20, 0, 0), Size = UDim2.new(1, -100, 1, 0) }, TitleBar)
+-- FIX: CormorantGaramond diganti Garamond
+Make("TextLabel", { BackgroundTransparency = 1, Text = "AXAC HUB", Font = Enum.Font.Garamond, TextSize = 22, TextColor3 = Theme.Text, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0, 20, 0, 0), Size = UDim2.new(1, -100, 1, 0) }, TitleBar)
 Make("Frame", { BackgroundColor3 = Theme.Hairline, BorderSizePixel = 0, Position = UDim2.new(0, 0, 1, -1), Size = UDim2.new(1, -14, 0, 1) }, TitleBar)
 Make("TextLabel", { BackgroundTransparency = 1, Text = "v3.1.0 · build 4192", Font = Enum.Font.Code, TextSize = 11, TextColor3 = Theme.Gold, TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.new(0, 150, 0, 21), Size = UDim2.new(0, 150, 0, 20) }, TitleBar)
 local CloseBtn = Make("TextButton", { Size = UDim2.new(0, 20, 0, 20), Position = UDim2.new(1, -34, 0, 31), BackgroundTransparency = 1, Text = "X", Font = Enum.Font.Gotham, TextSize = 11, TextColor3 = Theme.Subtext }, TitleBar)
